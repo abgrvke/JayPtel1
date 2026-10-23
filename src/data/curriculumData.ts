@@ -7,7 +7,6 @@ export const CURRICULAR_WEEKS: CurricularWeek[] = [
     title: 'Fundamentals & Packet Switching',
     description: 'Network edges, statistical multiplexing, queuing delays, transmission rates and circuit switching fundamentals.',
     questionCount: 10,
-    bestScore: 90,
     topics: ['Statistical Multiplexing', 'Transmission Delay', 'Propagation Delay', 'Packet vs Circuit Switching', 'Queuing Models']
   },
   {
@@ -16,7 +15,6 @@ export const CURRICULAR_WEEKS: CurricularWeek[] = [
     title: 'OSI & Layer Architecture',
     description: 'Layering abstractions, encapsulation, OSI 7-layer vs TCP/IP stack, and protocol data units.',
     questionCount: 10,
-    bestScore: 100,
     topics: ['OSI 7-Layer Model', 'TCP/IP 5-Layer Stack', 'Encapsulation Headers', 'Service Data Units', 'Layer Boundaries']
   },
   {
@@ -25,7 +23,6 @@ export const CURRICULAR_WEEKS: CurricularWeek[] = [
     title: 'HTTP/1.1 & DNS Resolution',
     description: 'Persistent connections, cookies, web caching, iterative vs recursive DNS queries, and resource records.',
     questionCount: 10,
-    bestScore: 80,
     topics: ['HTTP/1.1 Pipelining', 'DNS Recursive vs Iterative', 'Resource Records (A, CNAME, MX)', 'Conditional GET', 'Web Caching']
   },
   {

@@ -10,6 +10,7 @@ interface DashboardViewProps {
   activeUser: UserProfile;
   onSelectUser: (user: UserProfile) => void;
   onOpenUserModal: () => void;
+  onOpenNewUserModal?: () => void;
   onStartSession: (mode: string, weekNum?: number) => void;
   onReviewSession: (sessionId: string) => void;
   onRestoreQuestions: () => void;
@@ -25,6 +26,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   activeUser,
   onSelectUser,
   onOpenUserModal,
+  onOpenNewUserModal,
   onStartSession,
   onReviewSession,
   onRestoreQuestions,
@@ -32,26 +34,30 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onImportQuestions,
 }) => {
   const [simulatedEmpty, setSimulatedEmpty] = useState(false);
-  const [selectedUserFilter, setSelectedUserFilter] = useState<string>('all');
+  const [selectedUserFilter, setSelectedUserFilter] = useState<string>(activeUser.id);
 
-  // Compute live metrics
+  // Compute live metrics for total system
   const totalQuestionsCount = simulatedEmpty ? 0 : questions.length;
   const completedSessions = simulatedEmpty ? [] : sessions.filter(s => s.completed);
 
-  let totalQuestionsAttempted = 0;
-  let totalCorrect = 0;
+  // Active candidate's isolated metrics (0 for new user)
+  const activeUserCompleted = simulatedEmpty 
+    ? [] 
+    : completedSessions.filter(s => s.userId === activeUser.id);
 
-  completedSessions.forEach(s => {
-    totalQuestionsAttempted += s.totalQuestions;
-    totalCorrect += s.score;
+  let activeAttempted = 0;
+  let activeCorrect = 0;
+  activeUserCompleted.forEach(s => {
+    activeAttempted += s.totalQuestions;
+    activeCorrect += s.score;
   });
 
-  const accuracyPercent = totalQuestionsAttempted > 0 
-    ? ((totalCorrect / totalQuestionsAttempted) * 100).toFixed(1)
+  const activeAccuracyPercent = activeAttempted > 0 
+    ? ((activeCorrect / activeAttempted) * 100).toFixed(1)
     : '0.0';
 
-  const accuracyNum = parseFloat(accuracyPercent);
-  const roundedAccuracy = Math.round(accuracyNum);
+  const activeAccuracyNum = parseFloat(activeAccuracyPercent);
+  const activeRoundedAccuracy = Math.round(activeAccuracyNum);
 
   // Compute per-user stats for "Who Did What and By How Much"
   const userStats = users.map(u => {
@@ -184,14 +190,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-3xl lg:text-4xl font-headline font-black tracking-tight text-on-surface" id="metric-completed-sessions">
-                {completedSessions.length}
+                {activeUserCompleted.length}
               </span>
               <span className="text-xs font-semibold text-on-surface-variant">Sessions</span>
             </div>
             <div className="mt-4 pt-3 flex items-center justify-between text-xs text-on-surface-variant bg-surface-container-low px-3 py-2 rounded-xl shadow-[inset_0_1px_2px_rgba(0,0,0,0.04)]">
               <span className="font-medium">Questions Attempted</span>
               <span className="font-mono font-bold text-on-surface">
-                {totalQuestionsAttempted} MCQs
+                {activeAttempted} MCQs
               </span>
             </div>
           </div>
@@ -201,18 +207,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Global Accuracy</span>
               <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-black ${
-                accuracyNum >= 85 ? 'bg-tertiary-container/30 text-on-tertiary-container' : 'bg-secondary-container text-on-secondary-container'
+                activeAccuracyNum >= 85 ? 'bg-tertiary-container/30 text-on-tertiary-container' : 'bg-secondary-container text-on-secondary-container'
               }`}>
-                {accuracyNum >= 85 ? 'HIGH' : accuracyNum >= 70 ? 'NOMINAL' : 'WARMUP'}
+                {activeAccuracyNum >= 85 ? 'HIGH' : activeAccuracyNum >= 70 ? 'NOMINAL' : activeAttempted > 0 ? 'WARMUP' : 'INITIAL'}
               </span>
             </div>
             <div className="flex items-center justify-between mt-2">
               <div>
                 <div className="text-3xl lg:text-4xl font-headline font-black tracking-tight text-primary">
-                  {simulatedEmpty ? '0.0%' : `${accuracyPercent}%`}
+                  {simulatedEmpty ? '0.0%' : `${activeAccuracyPercent}%`}
                 </div>
                 <div className="text-[11px] text-on-surface-variant mt-0.5">
-                  {simulatedEmpty ? '0 Correct / 0 Solved' : `${totalCorrect} Correct / ${totalQuestionsAttempted} Solved`}
+                  {simulatedEmpty ? '0 Correct / 0 Solved' : `${activeCorrect} Correct / ${activeAttempted} Solved`}
                 </div>
               </div>
               {/* Tactile Gauge Donut (Inline SVG) */}
@@ -230,20 +236,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                     fill="none"
                     stroke="currentColor"
-                    strokeDasharray={simulatedEmpty ? "0, 100" : `${accuracyPercent}, 100`}
+                    strokeDasharray={simulatedEmpty ? "0, 100" : `${activeAccuracyPercent}, 100`}
                     strokeLinecap="round"
                     strokeWidth="3.5"
                   ></path>
                 </svg>
                 <span className="absolute text-[11px] font-bold text-on-surface font-mono">
-                  {simulatedEmpty ? '0' : roundedAccuracy}
+                  {simulatedEmpty ? '0' : activeRoundedAccuracy}
                 </span>
               </div>
             </div>
             <div className="w-full bg-surface-container rounded-full h-1.5 mt-3 overflow-hidden shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]">
               <div
                 className="bg-primary h-full rounded-full transition-all duration-700"
-                style={{ width: simulatedEmpty ? '0%' : `${accuracyPercent}%` }}
+                style={{ width: simulatedEmpty ? '0%' : `${activeAccuracyPercent}%` }}
               ></div>
             </div>
           </div>
@@ -267,7 +273,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </h2>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {onOpenNewUserModal && (
+                  <button
+                    onClick={onOpenNewUserModal}
+                    className="px-3.5 py-1.5 rounded-full text-xs font-bold text-on-primary bg-primary hover:bg-[#402a73] shadow-[0_2px_6px_rgba(79,55,138,0.25)] active:translate-y-0.5 transition-all cursor-pointer flex items-center gap-1.5"
+                    title="Sign in another candidate on this device (no password required)"
+                  >
+                    <span className="material-symbols-outlined text-sm">person_add</span>
+                    <span>+ Sign In as New User</span>
+                  </button>
+                )}
                 <button
                   onClick={onOpenUserModal}
                   className="px-3.5 py-1.5 rounded-full text-xs font-bold text-primary bg-primary-fixed hover:bg-primary hover:text-on-primary transition-all cursor-pointer flex items-center gap-1.5"
@@ -419,41 +435,50 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
             {/* 12-Card Tactile Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {weeks.map((w) => (
-                <div
-                  key={w.week}
-                  className="p-5 rounded-2xl bg-surface-container-lowest shadow-[0_4px_16px_rgba(79,55,138,0.04),0_1px_2px_rgba(0,0,0,0.03),inset_0_1px_1px_rgba(255,255,255,1)] hover:shadow-[0_8px_24px_rgba(79,55,138,0.09)] transition-all flex flex-col justify-between group"
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-surface-container-high text-on-surface-variant shadow-[inset_0_1px_1px_rgba(0,0,0,0.04)]">
-                        {w.weekCode}
-                      </span>
-                      <span className="text-[11px] font-bold text-secondary flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-secondary"></span> 10 MCQs
-                      </span>
+              {weeks.map((w) => {
+                const userWeekSessions = completedSessions.filter(
+                  s => s.userId === activeUser.id && s.weekNumber === w.week
+                );
+                const bestAccuracy = userWeekSessions.length > 0
+                  ? Math.max(...userWeekSessions.map(s => s.accuracy))
+                  : null;
+
+                return (
+                  <div
+                    key={w.week}
+                    className="p-5 rounded-2xl bg-surface-container-lowest shadow-[0_4px_16px_rgba(79,55,138,0.04),0_1px_2px_rgba(0,0,0,0.03),inset_0_1px_1px_rgba(255,255,255,1)] hover:shadow-[0_8px_24px_rgba(79,55,138,0.09)] transition-all flex flex-col justify-between group"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-surface-container-high text-on-surface-variant shadow-[inset_0_1px_1px_rgba(0,0,0,0.04)]">
+                          {w.weekCode}
+                        </span>
+                        <span className="text-[11px] font-bold text-secondary flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-secondary"></span> 10 MCQs
+                        </span>
+                      </div>
+                      <h3 className="text-sm font-headline font-black text-on-surface leading-snug group-hover:text-primary transition-colors">
+                        {w.title}
+                      </h3>
+                      <p className="text-xs text-on-surface-variant mt-1.5 line-clamp-2">
+                        {w.description}
+                      </p>
                     </div>
-                    <h3 className="text-sm font-headline font-black text-on-surface leading-snug group-hover:text-primary transition-colors">
-                      {w.title}
-                    </h3>
-                    <p className="text-xs text-on-surface-variant mt-1.5 line-clamp-2">
-                      {w.description}
-                    </p>
+                    <div className="pt-4 mt-4 flex items-center justify-between">
+                      <span className={`text-[11px] font-semibold ${bestAccuracy !== null ? 'text-tertiary font-bold' : 'text-on-surface-variant'}`}>
+                        {bestAccuracy !== null ? `${bestAccuracy.toFixed(0)}% Best` : 'Untested'}
+                      </span>
+                      <button
+                        onClick={() => handleStart(`week_${w.week}`, w.week)}
+                        className="px-3 py-1.5 rounded-xl bg-surface-container hover:bg-primary hover:text-on-primary text-primary text-xs font-bold tracking-tight shadow-[0_2px_0_0_rgba(79,55,138,0.2),0_2px_4px_rgba(0,0,0,0.04)] active:translate-y-0.5 transition-all flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>Start</span>
+                        <span className="material-symbols-outlined text-xs">arrow_forward</span>
+                      </button>
+                    </div>
                   </div>
-                  <div className="pt-4 mt-4 flex items-center justify-between">
-                    <span className={`text-[11px] font-semibold ${w.bestScore ? 'text-tertiary' : 'text-on-surface-variant'}`}>
-                      {w.bestScore ? `${w.bestScore}% Best` : 'Untested'}
-                    </span>
-                    <button
-                      onClick={() => handleStart(`week_${w.week}`, w.week)}
-                      className="px-3 py-1.5 rounded-xl bg-surface-container hover:bg-primary hover:text-on-primary text-primary text-xs font-bold tracking-tight shadow-[0_2px_0_0_rgba(79,55,138,0.2),0_2px_4px_rgba(0,0,0,0.04)] active:translate-y-0.5 transition-all flex items-center gap-1 cursor-pointer"
-                    >
-                      <span>Start</span>
-                      <span className="material-symbols-outlined text-xs">arrow_forward</span>
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -501,55 +526,78 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     </tr>
                   </thead>
                   <tbody className="text-on-surface font-medium divide-y divide-surface-container-low" id="history-tbody">
-                    {filteredSessions.map((sess) => {
-                      const mins = Math.floor(sess.durationSeconds / 60);
-                      const secs = sess.durationSeconds % 60;
-                      const durationStr = `${mins.toString().padStart(2, '0')}m ${secs.toString().padStart(2, '0')}s`;
-                      const sessUser = users.find(u => u.id === sess.userId);
-
-                      return (
-                        <tr key={sess.id} className="hover:bg-surface-container-low transition-colors">
-                          <td className="py-4 px-6">
-                            <div className="flex items-center gap-2">
-                              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-primary-fixed text-primary">
-                                {sess.userLabel || sessUser?.label || 'User 1'}
-                              </span>
-                              <span className="font-bold text-on-surface truncate max-w-[140px]">
-                                {sess.userName || sessUser?.name || 'User 1'}
-                              </span>
+                    {filteredSessions.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-12 px-6 text-center text-on-surface-variant">
+                          <div className="flex flex-col items-center justify-center space-y-2.5">
+                            <div className="w-12 h-12 rounded-2xl bg-surface-container-high flex items-center justify-center text-primary shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)]">
+                              <span className="material-symbols-outlined text-2xl">history_edu</span>
                             </div>
-                          </td>
-                          <td className="py-4 px-6 font-mono text-on-surface-variant">{sess.formattedDate}</td>
-                          <td className="py-4 px-6">
-                            <div className="font-bold text-on-surface">{sess.modeTitle}</div>
-                            <div className="text-[10px] text-on-surface-variant">{sess.subTitle}</div>
-                          </td>
-                          <td className="py-4 px-6 font-mono font-bold text-on-surface">
-                            {sess.score} / {sess.totalQuestions}
-                          </td>
-                          <td className="py-4 px-6">
-                            <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold shadow-[inset_0_1px_1px_rgba(255,255,255,0.7)] ${
-                              sess.accuracy >= 90
-                                ? 'bg-secondary-container text-on-secondary-container'
-                                : sess.accuracy === 100
-                                ? 'bg-tertiary-fixed text-on-tertiary-fixed'
-                                : 'bg-surface-container-highest text-on-surface-variant'
-                            }`}>
-                              {sess.accuracy.toFixed(1)}%
-                            </span>
-                          </td>
-                          <td className="py-4 px-6 font-mono text-on-surface-variant">{durationStr}</td>
-                          <td className="py-4 px-6 text-right">
+                            <p className="font-bold text-sm text-on-surface">No Practice Drills Logged Yet</p>
+                            <p className="text-xs text-on-surface-variant max-w-sm leading-relaxed">
+                              Initial history for this candidate is 0. Launch the 20-MCQ Exam Readiness Test or select any curriculum module to record your first score.
+                            </p>
                             <button
-                              onClick={() => handleReview(sess.id)}
-                              className="px-3 py-1.5 rounded-lg bg-surface-container text-primary hover:bg-primary hover:text-on-primary font-bold shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition-all cursor-pointer"
+                              onClick={() => handleStart('quick_20')}
+                              className="mt-2 px-4 py-2 rounded-xl bg-primary text-on-primary text-xs font-bold shadow-[0_2px_6px_rgba(79,55,138,0.3)] hover:bg-[#402a73] transition-all cursor-pointer flex items-center gap-1.5"
                             >
-                              Review
+                              <span className="material-symbols-outlined text-sm">play_arrow</span>
+                              <span>Take Quick Exam Readiness Test (20 MCQs)</span>
                             </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredSessions.map((sess) => {
+                        const mins = Math.floor(sess.durationSeconds / 60);
+                        const secs = sess.durationSeconds % 60;
+                        const durationStr = `${mins.toString().padStart(2, '0')}m ${secs.toString().padStart(2, '0')}s`;
+                        const sessUser = users.find(u => u.id === sess.userId);
+
+                        return (
+                          <tr key={sess.id} className="hover:bg-surface-container-low transition-colors">
+                            <td className="py-4 px-6">
+                              <div className="flex items-center gap-2">
+                                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-primary-fixed text-primary">
+                                  {sess.userLabel || sessUser?.label || 'User 1'}
+                                </span>
+                                <span className="font-bold text-on-surface truncate max-w-[140px]">
+                                  {sess.userName || sessUser?.name || 'User 1'}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-4 px-6 font-mono text-on-surface-variant">{sess.formattedDate}</td>
+                            <td className="py-4 px-6">
+                              <div className="font-bold text-on-surface">{sess.modeTitle}</div>
+                              <div className="text-[10px] text-on-surface-variant">{sess.subTitle}</div>
+                            </td>
+                            <td className="py-4 px-6 font-mono font-bold text-on-surface">
+                              {sess.score} / {sess.totalQuestions}
+                            </td>
+                            <td className="py-4 px-6">
+                              <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold shadow-[inset_0_1px_1px_rgba(255,255,255,0.7)] ${
+                                sess.accuracy >= 90
+                                  ? 'bg-secondary-container text-on-secondary-container'
+                                  : sess.accuracy === 100
+                                  ? 'bg-tertiary-fixed text-on-tertiary-fixed'
+                                  : 'bg-surface-container-highest text-on-surface-variant'
+                              }`}>
+                                {sess.accuracy.toFixed(1)}%
+                              </span>
+                            </td>
+                            <td className="py-4 px-6 font-mono text-on-surface-variant">{durationStr}</td>
+                            <td className="py-4 px-6 text-right">
+                              <button
+                                onClick={() => handleReview(sess.id)}
+                                className="px-3 py-1.5 rounded-lg bg-surface-container text-primary hover:bg-primary hover:text-on-primary font-bold shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition-all cursor-pointer"
+                              >
+                                Review
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>

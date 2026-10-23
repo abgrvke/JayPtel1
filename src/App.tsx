@@ -23,6 +23,7 @@ import {
   saveUsers,
   getActiveUserId,
   setActiveUserId,
+  createNewUser,
   upsertUser,
   playSound
 } from './utils/storage';
@@ -37,6 +38,7 @@ import { ReviewView } from './views/ReviewView';
 import { SettingsView } from './views/SettingsView';
 import { AppGuideModal } from './components/AppGuideModal';
 import { UserLayerModal } from './components/UserLayerModal';
+import { OnboardingModal } from './components/OnboardingModal';
 
 export default function App() {
   const [activeScreen, setActiveScreen] = useState<ActiveScreen>('dashboard');
@@ -44,18 +46,23 @@ export default function App() {
   const [sessions, setSessions] = useState<PracticeSession[]>([]);
   const [settings, setSettings] = useState<AppSettings>(getStoredSettings);
   const [users, setUsers] = useState<UserProfile[]>(getStoredUsers);
-  const [activeUserIdState, setActiveUserIdState] = useState<string>(getActiveUserId);
+  const [activeUserIdState, setActiveUserIdState] = useState<string | null>(getActiveUserId);
   const [currentActiveSession, setCurrentActiveSession] = useState<PracticeSession | null>(null);
   const [activeReviewSessionId, setActiveReviewSessionIdState] = useState<string | null>(null);
   const [lastFinishedSession, setLastFinishedSession] = useState<PracticeSession | null>(null);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(() => {
+    return getStoredUsers().length === 0;
+  });
 
   // Active user profile
   const activeUser = users.find(u => u.id === activeUserIdState) || users[0] || {
     id: 'user-1',
     label: 'User 1',
     name: 'User 1',
+    roleTitle: 'Candidate',
+    avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuActluAf71OpO07pmCtN-csrAAjfASFz2_wpDm7rXJ-E9zu8rD3j-ZpmQTScIaJrFB_VWCZ7KzSkfpkWgDSygadTu424TsPP5SpCpRD1ujKX4Jf-SU9X-3HZIzeX4iMXIrHA3frdRPpV1eHa-NlmOhyVTwcVQdYj16c35KbttD4IkiVchIt5FLW0uzGiY20GJdg2fEjDw_DJsVxYmJvbPPtT7BnWUga-bcsRL7M1jvL1p00t4mm5JzY7g',
     createdAt: Date.now()
   };
 
@@ -109,20 +116,23 @@ export default function App() {
   };
 
   const handleCreateUser = (name: string, roleTitle: string) => {
-    const newCount = users.length + 1;
-    const newUser: UserProfile = {
-      id: `user-${Date.now()}`,
-      label: `User ${newCount}`,
-      name: name.startsWith('User') ? name : `User ${newCount} (${name})`,
-      roleTitle: roleTitle || 'Candidate',
-      avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuActluAf71OpO07pmCtN-csrAAjfASFz2_wpDm7rXJ-E9zu8rD3j-ZpmQTScIaJrFB_VWCZ7KzSkfpkWgDSygadTu424TsPP5SpCpRD1ujKX4Jf-SU9X-3HZIzeX4iMXIrHA3frdRPpV1eHa-NlmOhyVTwcVQdYj16c35KbttD4IkiVchIt5FLW0uzGiY20GJdg2fEjDw_DJsVxYmJvbPPtT7BnWUga-bcsRL7M1jvL1p00t4mm5JzY7g',
-      createdAt: Date.now()
-    };
-    const updated = [...users, newUser];
-    setUsers(updated);
-    saveUsers(updated);
+    const newUser = createNewUser(name, roleTitle || 'Candidate');
+    const updatedUsers = getStoredUsers();
+    setUsers(updatedUsers);
     setActiveUserIdState(newUser.id);
-    setActiveUserId(newUser.id);
+  };
+
+  const handleCompleteOnboarding = (name: string, roleTitle?: string) => {
+    const newUser = createNewUser(name, roleTitle || 'Candidate');
+    const updatedUsers = getStoredUsers();
+    setUsers(updatedUsers);
+    setActiveUserIdState(newUser.id);
+    setIsOnboardingOpen(false);
+  };
+
+  const handleOpenNewUserModal = () => {
+    playSound('click');
+    setIsOnboardingOpen(true);
   };
 
   // Launch a session from Dashboard or presets
@@ -364,10 +374,11 @@ export default function App() {
     setSessions(defSessions);
     const defUsers = getStoredUsers();
     setUsers(defUsers);
-    setActiveUserIdState('user-1');
+    setActiveUserIdState(null);
     setCurrentActiveSession(null);
-    setActiveReviewSessionIdState(defSessions[0]?.id || null);
+    setActiveReviewSessionIdState(null);
     setSettings(getStoredSettings());
+    setIsOnboardingOpen(true);
     setActiveScreen('dashboard');
   };
 
@@ -413,11 +424,12 @@ export default function App() {
           playSound('click');
           setIsUserModalOpen(true);
         }}
+        onOpenNewUserModal={handleOpenNewUserModal}
         totalQuestions={questions.length}
       />
 
       {/* Main Content Viewport */}
-      <main className="w-full pt-28 bg-surface flex-1 max-w-7xl mx-auto px-6 lg:px-12">
+      <main className="w-full pt-20 sm:pt-28 bg-surface flex-1 max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-12 overflow-x-hidden">
         {activeScreen === 'dashboard' && (
           <DashboardView
             weeks={CURRICULAR_WEEKS}
@@ -427,6 +439,7 @@ export default function App() {
             activeUser={activeUser}
             onSelectUser={handleSelectUser}
             onOpenUserModal={() => setIsUserModalOpen(true)}
+            onOpenNewUserModal={handleOpenNewUserModal}
             onStartSession={handleStartSession}
             onReviewSession={handleReviewSession}
             onRestoreQuestions={handleRestoreQuestions}
@@ -514,6 +527,15 @@ export default function App() {
         onUpdateUser={handleUpdateUser}
         onCreateUser={handleCreateUser}
         onReviewSession={handleReviewSession}
+      />
+
+      {/* Device Isolation Onboarding / Sign-in Modal */}
+      <OnboardingModal
+        isOpen={isOnboardingOpen}
+        isFirstUserOnDevice={users.length === 0}
+        nextUserNumber={users.length + 1}
+        onComplete={handleCompleteOnboarding}
+        onClose={users.length > 0 ? () => setIsOnboardingOpen(false) : undefined}
       />
     </div>
   );

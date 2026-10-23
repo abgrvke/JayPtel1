@@ -266,12 +266,17 @@ export const UserLayerModal: React.FC<UserLayerModalProps> = ({
               </div>
 
               {isCreating && (
-                <form onSubmit={handleCreateNew} className="p-4 rounded-2xl bg-surface-container space-y-3">
-                  <h4 className="text-xs font-bold text-on-surface">Create New Candidate Profile</h4>
+                <form onSubmit={handleCreateNew} className="p-4 rounded-2xl bg-surface-container space-y-3 border border-primary/20">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-on-surface">Sign in as New Candidate</h4>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-surface-container-highest text-primary font-bold">
+                      No password required • History: 0
+                    </span>
+                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <input
                       type="text"
-                      placeholder="e.g. User 3 (Alex Morgan)"
+                      placeholder={`e.g. Candidate Name (User ${users.length + 1})`}
                       value={newUserName}
                       onChange={(e) => setNewUserName(e.target.value)}
                       className="px-3 py-2 rounded-xl bg-surface-container-lowest text-xs text-on-surface border border-outline-variant focus:outline-none focus:ring-1 focus:ring-primary"
@@ -279,7 +284,7 @@ export const UserLayerModal: React.FC<UserLayerModalProps> = ({
                     />
                     <input
                       type="text"
-                      placeholder="Role (e.g. Associate Architect)"
+                      placeholder="Role (e.g. Systems Engineer)"
                       value={newUserRole}
                       onChange={(e) => setNewUserRole(e.target.value)}
                       className="px-3 py-2 rounded-xl bg-surface-container-lowest text-xs text-on-surface border border-outline-variant focus:outline-none focus:ring-1 focus:ring-primary"

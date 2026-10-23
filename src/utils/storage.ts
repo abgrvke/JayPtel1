@@ -9,25 +9,6 @@ const REVIEW_ID_KEY = 'netprep_review_id_v2';
 const USERS_KEY = 'netprep_users_v2';
 const ACTIVE_USER_ID_KEY = 'netprep_active_user_id_v2';
 
-export const DEFAULT_USERS: UserProfile[] = [
-  {
-    id: 'user-1',
-    label: 'User 1',
-    name: 'User 1 (Abhijeet G.)',
-    roleTitle: 'Lead Candidate',
-    avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuActluAf71OpO07pmCtN-csrAAjfASFz2_wpDm7rXJ-E9zu8rD3j-ZpmQTScIaJrFB_VWCZ7KzSkfpkWgDSygadTu424TsPP5SpCpRD1ujKX4Jf-SU9X-3HZIzeX4iMXIrHA3frdRPpV1eHa-NlmOhyVTwcVQdYj16c35KbttD4IkiVchIt5FLW0uzGiY20GJdg2fEjDw_DJsVxYmJvbPPtT7BnWUga-bcsRL7M1jvL1p00t4mm5JzY7g',
-    createdAt: Date.now() - 86400000 * 7
-  },
-  {
-    id: 'user-2',
-    label: 'User 2',
-    name: 'User 2 (Peer Reviewer)',
-    roleTitle: 'Systems Reviewer',
-    avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuActluAf71OpO07pmCtN-csrAAjfASFz2_wpDm7rXJ-E9zu8rD3j-ZpmQTScIaJrFB_VWCZ7KzSkfpkWgDSygadTu424TsPP5SpCpRD1ujKX4Jf-SU9X-3HZIzeX4iMXIrHA3frdRPpV1eHa-NlmOhyVTwcVQdYj16c35KbttD4IkiVchIt5FLW0uzGiY20GJdg2fEjDw_DJsVxYmJvbPPtT7BnWUga-bcsRL7M1jvL1p00t4mm5JzY7g',
-    createdAt: Date.now() - 86400000 * 3
-  }
-];
-
 export const DEFAULT_SETTINGS: AppSettings = {
   timedMode: true,
   minutesPerQuestion: 1.5,
@@ -37,19 +18,22 @@ export const DEFAULT_SETTINGS: AppSettings = {
   shuffleOptions: false
 };
 
-// --- Storage API ---
+// --- User Layer Storage API ---
 
+/**
+ * Returns stored users on this device.
+ * For a brand new device, returns an empty array [].
+ */
 export function getStoredUsers(): UserProfile[] {
   try {
     const raw = localStorage.getItem(USERS_KEY);
     if (!raw) {
-      saveUsers(DEFAULT_USERS);
-      return DEFAULT_USERS;
+      return [];
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_USERS;
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
-    return DEFAULT_USERS;
+    return [];
   }
 }
 
@@ -61,21 +45,47 @@ export function saveUsers(users: UserProfile[]): void {
   }
 }
 
-export function getActiveUserId(): string {
+export function getActiveUserId(): string | null {
   try {
-    const raw = localStorage.getItem(ACTIVE_USER_ID_KEY);
-    return raw || 'user-1';
+    return localStorage.getItem(ACTIVE_USER_ID_KEY);
   } catch {
-    return 'user-1';
+    return null;
   }
 }
 
-export function setActiveUserId(id: string): void {
+export function setActiveUserId(id: string | null): void {
   try {
-    localStorage.setItem(ACTIVE_USER_ID_KEY, id);
+    if (id) {
+      localStorage.setItem(ACTIVE_USER_ID_KEY, id);
+    } else {
+      localStorage.removeItem(ACTIVE_USER_ID_KEY);
+    }
   } catch (e) {
     console.error('Failed to save active user id', e);
   }
+}
+
+export function createNewUser(rawName: string, roleTitle = 'Candidate'): UserProfile {
+  const currentUsers = getStoredUsers();
+  const nextNum = currentUsers.length + 1;
+  const trimmed = rawName.trim();
+  const label = `User ${nextNum}`;
+  // If user entered e.g. "Abhijeet", label is "User 1" and name is "User 1 (Abhijeet)" or "Abhijeet"
+  const formattedName = trimmed ? `${label} (${trimmed})` : label;
+
+  const newUser: UserProfile = {
+    id: `user-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    label,
+    name: formattedName,
+    roleTitle: roleTitle || 'Candidate',
+    avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuActluAf71OpO07pmCtN-csrAAjfASFz2_wpDm7rXJ-E9zu8rD3j-ZpmQTScIaJrFB_VWCZ7KzSkfpkWgDSygadTu424TsPP5SpCpRD1ujKX4Jf-SU9X-3HZIzeX4iMXIrHA3frdRPpV1eHa-NlmOhyVTwcVQdYj16c35KbttD4IkiVchIt5FLW0uzGiY20GJdg2fEjDw_DJsVxYmJvbPPtT7BnWUga-bcsRL7M1jvL1p00t4mm5JzY7g',
+    createdAt: Date.now()
+  };
+
+  const updated = [...currentUsers, newUser];
+  saveUsers(updated);
+  setActiveUserId(newUser.id);
+  return newUser;
 }
 
 export function upsertUser(user: UserProfile): UserProfile[] {
@@ -92,6 +102,8 @@ export function upsertUser(user: UserProfile): UserProfile[] {
   return updated;
 }
 
+// --- Questions Storage API ---
+
 export function getStoredQuestions(): Question[] {
   try {
     const raw = localStorage.getItem(QUESTIONS_KEY);
@@ -100,7 +112,7 @@ export function getStoredQuestions(): Question[] {
       return INITIAL_QUESTIONS;
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : INITIAL_QUESTIONS;
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_QUESTIONS;
   } catch {
     return INITIAL_QUESTIONS;
   }
@@ -119,17 +131,22 @@ export function resetQuestionsToDefault(): Question[] {
   return INITIAL_QUESTIONS;
 }
 
+// --- Practice Sessions Storage API ---
+
+/**
+ * Returns completed practice sessions.
+ * For a brand new device, returns empty array [] with 0 history.
+ */
 export function getStoredSessions(): PracticeSession[] {
   try {
     const raw = localStorage.getItem(SESSIONS_KEY);
     if (!raw) {
-      saveSessions(DEMO_SESSIONS);
-      return DEMO_SESSIONS;
+      return [];
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : DEMO_SESSIONS;
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
-    return DEMO_SESSIONS;
+    return [];
   }
 }
 
@@ -146,6 +163,19 @@ export function saveNewSession(session: PracticeSession): PracticeSession[] {
   const updated = [session, ...current];
   saveSessions(updated);
   return updated;
+}
+
+// Optional helper to load demo sessions if explicitly clicked
+export function seedDemoHistoryForTesting(activeUser: UserProfile): PracticeSession[] {
+  const seeded = DEMO_SESSIONS.map((s, idx) => ({
+    ...s,
+    id: `seed-${Date.now()}-${idx}`,
+    userId: activeUser.id,
+    userName: activeUser.name,
+    userLabel: activeUser.label
+  }));
+  saveSessions(seeded);
+  return seeded;
 }
 
 export function getStoredSettings(): AppSettings {

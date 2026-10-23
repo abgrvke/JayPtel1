@@ -1,0 +1,6 @@
+{
+  "name": "NetPrep - Computer Networking Practice",
+  "description": "Interactive exam readiness platform for Computer Networking curriculum with 120 validated MCQs across 12 modules, realistic test engine, and in-depth RFC explanations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
